@@ -56,7 +56,7 @@ x |>
     subtitle = "Short names have become more popular",
     x = "Year",
     y = "Proportion of Names", 
-    caption = "Source: babynames package"
+    caption = "Source: babynames dataset"
   ) +
   theme_minimal(base_size = 13)
 ```
