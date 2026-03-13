@@ -1,0 +1,62 @@
+---
+title: "Analyzing Baby Names and Flights"
+author: "Alec Rogers"
+format: html
+execute:
+    echo: false
+---
+
+```{r}
+#| message: false
+#| label: setup
+
+library(tidyverse)
+library(DBI)
+library(duckdb)
+library(dbplyr)
+```
+
+```{r}
+con_names <- DBI::dbConnect(
+  duckdb::duckdb(),
+  dbdir = "data/nameby_year.duckdb"
+)
+```
+
+```{r}
+#| cache: true
+
+dbplyr_names <- tbl(con_names, "babynames")
+
+x <- dbplyr_names |>
+    filter(name %like% "Z%", year > 2000, n >= 10) |>
+    mutate(length_class = if_else(str_length(name) <= 5, "Short", "Long")) |> 
+    summarize(total = sum(n), .by = c(year, length_class)) |> 
+    arrange(year) |>
+    collect()
+```
+
+
+```{r}
+x |>
+  mutate(prop = total / sum(total), .by = year) |>
+  ggplot(aes(x = year, y = prop, fill = length_class)) +
+  geom_col(position = "fill", width = 0.8) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(
+    values = c("Short" = "#4CAF50", "Long" = "#FF9800"),
+    labels = c(
+      "Short" = "Short (≤5 characters)",
+      "Long"  = "Long (>5 characters)"
+    ),
+    name = "Name Length"
+  ) +
+  labs(
+    title = "Proportion of Z Names by Length Over Time",
+    subtitle = "Short names have become more popular",
+    x = "Year",
+    y = "Proportion of Names", 
+    caption = "Source: babynames package"
+  ) +
+  theme_minimal(base_size = 13)
+```
