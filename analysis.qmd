@@ -60,3 +60,83 @@ x |>
   ) +
   theme_minimal(base_size = 13)
 ```
+
+```{r}
+con_air <- dbConnect(duckdb::duckdb(), "data/nycflights13.duckdb")
+
+ dbplyr_fly <- tbl(con_air, "flights")
+
+ departure_table <- dbplyr_fly |>
+    select(dep_time, arr_time, sched_dep_time, dep_delay, tailnum) |>
+    collect() |>
+    mutate(tail_number = parse_number(tailnum)) |>
+    filter(!is.na(dep_time))
+
+departure_table |>
+  summarise(
+    dep_time_na = sum(is.na(dep_time)),
+    arr_time_na = sum(is.na(arr_time))
+  )
+```
+
+```{r}
+departure_table |>
+    select(tailnum) |>
+    collect() |>
+    filter(grepl("^N1", tailnum)) |>
+    distinct(tailnum)
+```
+
+```{r}
+#| cache: true
+
+x <- departure_table |>
+  mutate(
+    dep_hour = dep_time %/% 100,
+    dep_minute = dep_time %% 100,
+    sched_hour = sched_dep_time %/% 100,
+    sched_minute = sched_dep_time %% 100,
+    true_dep_delay = pmax(dep_delay, 0)
+  ) |>
+    count(sched_hour, dep_hour, wt = true_dep_delay, name = "total_delay")
+```
+
+normal scale coloring
+```{r}
+ggplot(x, aes(x = sched_hour, y = dep_hour, fill = total_delay)) +
+  geom_tile(color = "white", linewidth = 0.2) +
+  scale_fill_viridis_c(option = "C", name = "Total Delay (min)") +
+  labs(
+    title = "Flight Departure Delays by Scheduled vs Actual Hour",
+    subtitle = "Most delays occur in the afternoon and evening",
+    x = "Scheduled Departure Hour",
+    y = "Actual Departure Hour",
+    caption = "Source: flights dataset"
+  ) +
+  coord_equal() +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+```
+log scale coloring
+
+```{r}
+ggplot(x, aes(x = sched_hour, y = dep_hour, fill = total_delay)) +
+  geom_tile(color = "white", linewidth = 0.2) +
+  scale_fill_viridis_c(trans = "log10", option = "C", name = "Total Delay (log)") +
+  labs(
+    title = "Flight Departure Delays by Scheduled vs Actual Hour",
+    subtitle = "Most delays occur in the afternoon and evening",
+    x = "Scheduled Departure Hour",
+    y = "Actual Departure Hour",
+    caption = "Source: flights dataset"
+  ) +
+  coord_equal() +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank()
+  )
+```
